@@ -27,11 +27,13 @@ export async function executeOrders() {
         // Update the current block to avoid seeding data at restart
         const currentBlock = await rpcprovider.getBlockNumber();
 
-        fs.writeFileSync("data/lastProcessedBlock.json", `lastProcessedBlock: ${currentBlock}`);
+        fs.writeFileSync("data/lastProcessedBlock.json", currentBlock.toString());
 
 
         let orders = showOrders();
         if (orders.length > 0) {
+
+            console.log("Total Available Orders:", orders.length);
 
             const { multicall, accountContract } = createContracts();
 

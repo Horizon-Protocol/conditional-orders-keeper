@@ -1,18 +1,13 @@
 import 'dotenv/config'
 import { listenEvents } from "./orderListener";
 import { executeOrders } from "./orderExecutor";
-import { checkForSeeding } from "./utils";
-import { seedOrders } from "./seedConditionalOrders";
+import { seedOrders } from "./utils";
 import fs from 'fs'
 
 
 const main = async () => {
-    // Check for seeding
-    const seed = await checkForSeeding();
-    if (seed) {
-        // logger.info(`Seeding Required: ${lastProcessedBlock}`);
-        await seedOrders();
-    }
+    // Initialize Seeding
+    await seedOrders();
 
     // Start the listener
     await listenEvents();

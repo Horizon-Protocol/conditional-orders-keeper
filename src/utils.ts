@@ -6,6 +6,7 @@ import { ethers } from 'ethers';
 import { WebSocketProvider } from './customWebsocket';
 import { ABI } from './constants';
 import { logger } from './logger';
+import { seedOrdersFromBlock } from "./seedConditionalOrders";
 
 import {
     rpc,
@@ -34,22 +35,21 @@ export const createContracts = () => {
     return { eventsContract, multicall, accountContract };
 }
 
-export const checkForSeeding = async (): Promise<boolean> => {
+export const seedOrders = async () => {
+    const currentBlock = await rpcprovider.getBlockNumber();
+    
     const lastProcessedBlockFile: string = "data/lastProcessedBlock.json";
-
     let lastProcessedBlock: number = 0;
     if (fs.existsSync(lastProcessedBlockFile)) {
         lastProcessedBlock = JSON.parse(fs.readFileSync(lastProcessedBlockFile, 'utf-8'));
     }
 
-    logger.info(`lastProcessedBlock: ${lastProcessedBlock}`);
-    
-    // Update the current block to avoid seeding data at restart
-    const currentBlock = await rpcprovider.getBlockNumber();
-    logger.info(`currentBlock: ${currentBlock}`);
+    logger.info(`lastProcessedBlock: ${lastProcessedBlock}, currentBlock: ${currentBlock}`);
 
-    // Seeding required
-    if (lastProcessedBlock === 0 || lastProcessedBlock <= seedBlock || lastProcessedBlock <= currentBlock) return true;
+    if (lastProcessedBlock === 0 || lastProcessedBlock == undefined) {
+        console.log('No seeded Data found');
 
-    return false;
+        await seedOrdersFromBlock(seedBlock, currentBlock);
+    }
+    else await seedOrdersFromBlock(lastProcessedBlock, currentBlock);
 }

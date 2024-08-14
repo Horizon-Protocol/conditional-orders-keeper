@@ -1,29 +1,24 @@
 import fs from 'fs';
 import { ethers } from "ethers";
 
-export const seedBlock = 68492739;
-const CHUNK_SIZE = 10000; // limit range of events to comply with rpc providers
+import { createContracts } from './utils';
+import { CHUNK_SIZE } from './config';
+import { pushOrders, deleteOrders } from './state';
+import { IORDER } from './types';
 
-const ABI = [
-    "event ConditionalOrderPlaced(address indexed account, uint256 indexed conditionalOrderId, bytes32 indexed gelatoTaskId, bytes32 marketKey, int256 marginDelta, int256 sizeDelta, uint256 targetPrice, uint8 conditionalOrderType, uint256 desiredFillPrice, bool reduceOnly)",
-    "event ConditionalOrderCancelled(address indexed account, uint256 indexed conditionalOrderId, bytes32 indexed gelatoTaskId, uint8 reason)",
-    "event ConditionalOrderFilled(address indexed account, uint256 indexed conditionalOrderId, bytes32 indexed gelatoTaskId, uint256 fillPrice, uint256 keeperFee, uint8 priceOracle)",
+export const seedOrdersFromBlock = async (seedBlock: number, currentBlock: number) => {
+    console.log('seedOrdersFromBlock', seedBlock, currentBlock);
 
-    'function executeConditionalOrder(uint256 _conditionalOrderId) external',
+    let ordersToFullfill: IORDER[] = [];
 
-    'function zUSDRates() public view returns (tuple(bytes32 marketKey, uint256 price, uint8 priceOracle)[] memory)',
+    const { eventsContract } = createContracts();
 
-    'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) payable returns (tuple(bool success, bytes returnData)[] returnData)',
-    'function aggregate(tuple(address target, bytes callData)[] calls) payable returns (uint256 blockNumber, bytes[] returnData)',
-];
+    let updatedOrders = await checkNewEventsAndUpdateEventsData(seedBlock, currentBlock, eventsContract, eventsContract.address, ordersToFullfill)
 
-interface IORDER {
-    account: string;
-    conditionalOrderId: number;
-    marketKey: string;
-    long: boolean;
-    targetPrice: ethers.BigNumber;
-    conditionalOrderType: number
+    // const ordersToFullfill    fs.readFileSync('data/ordersToFullfill.json', JSON.stringify(updatedOrders));
+
+    // fs.writeFileSync("data/ordersToFullfill.txt", JSON.stringify(JSON.stringify(updatedOrders)));
+    console.log('currentBlock', currentBlock);
 }
 
 const checkNewEventsAndUpdateEventsData = async (lastProcessedBlock: number, currentBlock: number, contract: ethers.Contract, contractAddress: string, orders: IORDER[]): Promise<IORDER[]> => {
@@ -58,8 +53,6 @@ const checkNewEventsAndUpdateEventsData = async (lastProcessedBlock: number, cur
                 const { event: eventName, args, transactionHash, blockNumber } = event;
                 if (!args) continue; // Skip events without arguments
 
-                // console.log('eventName', eventName, event.transactionHash);
-
                 if (eventName === "ConditionalOrderPlaced") {
                     const account = args?.[0];
                     const conditionalOrderId = args?.[1].toNumber();
@@ -68,28 +61,20 @@ const checkNewEventsAndUpdateEventsData = async (lastProcessedBlock: number, cur
                     const targetPrice = args?.[6];
                     const conditionalOrderType = args?.[7];
 
-                    // Check for duplicate orders
-                    const orderExists = orders.some(order =>
-                        order.account === account && order.conditionalOrderId === conditionalOrderId
+                    pushOrders(
+                        account,
+                        conditionalOrderId,
+                        marketKey,
+                        Number(sizeDelta) > 0 ? true : false,
+                        targetPrice,
+                        Number(conditionalOrderType),
                     );
 
-                    if (!orderExists) {
-                        orders.push({
-                            account,
-                            conditionalOrderId: Number(conditionalOrderId),
-                            marketKey,
-                            long: Number(sizeDelta) > 0 ? true : false,
-                            targetPrice: targetPrice,
-                            conditionalOrderType: conditionalOrderType
-                        });
-                    }
                     console.log(`ConditionalOrderPlaced: Account: ${account},ID:${conditionalOrderId},${blockNumber},${transactionHash}`);
                 } else if (eventName === "ConditionalOrderCancelled" || eventName === "ConditionalOrderFilled") {
                     const account = args?.[0];
                     const conditionalOrderId = args?.[1].toNumber();
-                    orders = orders.filter(
-                        (order) => !(order.account === account && order.conditionalOrderId === conditionalOrderId)
-                    );
+                    deleteOrders(account, conditionalOrderId)
                     console.log(`${eventName === "ConditionalOrderCancelled" ? "ConditionalOrderCancelled" : "ConditionalOrderFilled"}: Account:${account},ID:${conditionalOrderId},${blockNumber},${transactionHash}`);
                 }
             }
@@ -106,24 +91,3 @@ const checkNewEventsAndUpdateEventsData = async (lastProcessedBlock: number, cur
         return orders;
     }
 };
-
-export const seedOrders = async () => {
-    const provider = new ethers.providers.JsonRpcProvider("https://sepolia-rollup.arbitrum.io/rpc")
-
-    let ordersToFullfill: IORDER[] = [];
-    const currentBlock = await provider.getBlockNumber();
-
-    const eventsContract = new ethers.Contract("0x354b1c5e5e58f80Dfd0B7C72efA0aa0805fdf3c9", ABI, provider);
-
-
-    let updatedOrders = await checkNewEventsAndUpdateEventsData(seedBlock, currentBlock, eventsContract, eventsContract.address, ordersToFullfill)
-
-    // const ordersToFullfill    fs.readFileSync('data/ordersToFullfill.json', JSON.stringify(updatedOrders));
-
-    fs.writeFileSync("data/ordersToFullfill.txt", JSON.stringify(JSON.stringify(updatedOrders)));
-    fs.writeFileSync("data/ordersToFullfill.json", JSON.stringify(updatedOrders));
-
-    console.log('currentBlock', currentBlock);
-}
-
-// first()

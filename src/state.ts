@@ -1,15 +1,6 @@
-require('dotenv').config();
+import fs from 'fs';
 import { ethers } from "ethers";
-
-
-interface IORDER {
-    account: string;
-    conditionalOrderId: number;
-    marketKey: string;
-    long: boolean;
-    targetPrice: ethers.BigNumber;
-    conditionalOrderType: number
-}
+import { IORDER } from './types';
 
 // Shared Array to store event data
 let orders: Array<IORDER> = [];
@@ -27,7 +18,7 @@ export function pushOrders(
     marketKey: string,
     long: boolean,
     targetPrice: ethers.BigNumber,
-    conditionalOrderType: number
+    conditionalOrderType: number,
 ) {
     // Check for duplicate orders
     const orderExists = orders.some(order =>
@@ -44,11 +35,21 @@ export function pushOrders(
             conditionalOrderType: conditionalOrderType
         });
     }
+
+    if (account === '0xDf3F08bE7d1C63871975a34EacCdd180381F1993' && conditionalOrderId === 16) {
+        console.log("****************************************")
+    }
+    
+    fs.writeFileSync("data/ordersToFullfill.json", JSON.stringify(orders));
 }
 
 export function deleteOrders(
     account: string,
-    conditionalOrderId: number
+    conditionalOrderId: number,
 ) {
+    if (account === '0xDf3F08bE7d1C63871975a34EacCdd180381F1993' && conditionalOrderId === 16) {
+        console.log("****************************************")
+    }
     orders = orders.filter(order => !(order.account === account && order.conditionalOrderId === conditionalOrderId));
+    fs.writeFileSync("data/ordersToFullfill.json", JSON.stringify(orders));
 }

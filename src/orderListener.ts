@@ -29,7 +29,7 @@ export const listenEvents = async () => {
             account,
             Number(conditionalOrderId),
             marketKey,
-            Number(sizeDelta) > 0 ? true : false,
+            Number(ethers.utils.formatEther(sizeDelta)) > 0 ? true : false,
             targetPrice,
             Number(conditionalOrderType),
         );
@@ -47,7 +47,7 @@ export const listenEvents = async () => {
     // Event listener for ConditionalOrderFilled
     eventsContract.on("ConditionalOrderFilled", (account: string, conditionalOrderId: ethers.BigNumber) => {
         deleteOrders(account, conditionalOrderId.toNumber())
-        console.log(`Order cancelled: ${account}, ID: ${conditionalOrderId.toString()}`);
+        console.log(`Order Filled: ${account}, ID: ${conditionalOrderId.toString()}`);
     });
 }
 
