@@ -8,6 +8,11 @@ let orders: Array<IORDER> = [];
 // To remove duplicate events
 let processedEvents = new Set();
 
+export function initializeOrders(initialOrders: Array<IORDER>) {
+    console.log("Initial Orders", initialOrders);
+    orders = initialOrders;
+}
+
 export function showOrders() {
     return orders;
 }
@@ -35,10 +40,6 @@ export function pushOrders(
             conditionalOrderType: conditionalOrderType
         });
     }
-
-    if (account === '0xDf3F08bE7d1C63871975a34EacCdd180381F1993' && conditionalOrderId === 16) {
-        console.log("****************************************")
-    }
     
     fs.writeFileSync("data/ordersToFullfill.json", JSON.stringify(orders));
 }
@@ -47,9 +48,6 @@ export function deleteOrders(
     account: string,
     conditionalOrderId: number,
 ) {
-    if (account === '0xDf3F08bE7d1C63871975a34EacCdd180381F1993' && conditionalOrderId === 16) {
-        console.log("****************************************")
-    }
     orders = orders.filter(order => !(order.account === account && order.conditionalOrderId === conditionalOrderId));
     fs.writeFileSync("data/ordersToFullfill.json", JSON.stringify(orders));
 }
