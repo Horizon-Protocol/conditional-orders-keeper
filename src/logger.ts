@@ -26,7 +26,8 @@ export const logger = createLogger({
         new DailyRotateFile({
             filename: `logs/application-%DATE%.log`,
             datePattern: 'YYYY-MM-DD',
-            maxFiles: '60d', // Keep logs for 60 days (2 months)
+            maxFiles: '7d', // Keep logs for 7 days
+            maxSize: '100m',
             zippedArchive: true,
             format: logFormat
         })
