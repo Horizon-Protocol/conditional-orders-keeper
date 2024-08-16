@@ -6,6 +6,7 @@ import { WebSocketProvider } from './customWebsocket';
 import { ABI } from './constants';
 
 import {
+    wss,
     rpc,
     signerPrivateKey,
     eventsContractAddress,
@@ -15,11 +16,9 @@ import {
 
 
 // Ethers Provider and Signer
-const wsprovider1 = new WebSocketProvider(rpc!.replace(/https/, 'wss'));
-export const rpcprovider = new ethers.providers.JsonRpcProvider(
-    process.env.RPC1
-);
-const wallet = new ethers.Wallet(signerPrivateKey!);
+const wsprovider1 = new WebSocketProvider(wss);
+export const rpcprovider = new ethers.providers.JsonRpcProvider(rpc);
+const wallet = new ethers.Wallet(signerPrivateKey);
 export const signer = wallet.connect(rpcprovider);
 
 export const createContracts = () => {

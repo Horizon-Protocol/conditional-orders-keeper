@@ -1,7 +1,5 @@
 import { createLogger, format, transports } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
-import fs from 'fs';
-
 
 const { combine, timestamp, printf, colorize } = format;
 // Define a custom log format

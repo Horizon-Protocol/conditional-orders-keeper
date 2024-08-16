@@ -1,10 +1,13 @@
-export const rpc = process.env.RPC1;
-export const signerPrivateKey = process.env.PVTKEY;
+export const wss = process.env.WSS!;
+export const rpc = process.env.RPC!;
+export const signerPrivateKey = process.env.PVTKEY!;
+export const seedBlock = Number(process.env.SEEDBLOCK!);
+export const CHUNK_SIZE = Number(process.env.CHUNK_SIZE!); // limit range of events to comply with rpc providers
+export const RESTART_TIMEOUT = Number(process.env.RESTART_TIMEOUT!); // Code restart timeout
+export const eventsContractAddress = process.env.EVENTS!
+export const multicallAddress = process.env.MULTICALL!
+export const accountContractAddress = process.env.ACCOUNT!
 
-export const seedBlock = 68492739;
-export const CHUNK_SIZE = 10000; // limit range of events to comply with rpc providers
-export const eventsContractAddress = "0x354b1c5e5e58f80Dfd0B7C72efA0aa0805fdf3c9";
-export const multicallAddress = "0xcA11bde05977b3631167028862bE2a173976CA11";
-export const accountContractAddress = "0x7B0E650A0A7484E20CD0Aa3d363e08F153381997";
+
 
 

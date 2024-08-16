@@ -2,14 +2,14 @@ import fs from 'fs';
 import { ethers } from 'ethers';
 
 import { IORDER, IRates } from './types';
-import { CHUNK_SIZE, seedBlock } from './config';
+import { CHUNK_SIZE, seedBlock, RESTART_TIMEOUT } from './config';
 import { initializeOrders, showOrders, pushOrders, deleteOrders } from './state';
 import { rpcprovider, signer, createContracts } from './utils';
 import { logger } from './logger';
 
 export async function executeOrders() {
     await seedOrders();
-    logger.info("Execute Conditional Orders");
+    logger.info(`Execute Conditional Orders`);
 
     const lastProcessedBlockFile: string = "data/lastProcessedBlock.json";
 
@@ -27,8 +27,7 @@ export async function executeOrders() {
         // 2. Execute the orders
         let orders = showOrders();
         if (orders.length > 0) {
-
-            console.log("Total Available Orders:", orders.length);
+            logger.info(`Total Available Orders: ${orders.length}`);
 
             const { multicall, accountContract } = createContracts();
 
@@ -51,7 +50,7 @@ export async function executeOrders() {
                 }
             })
 
-            console.log("Total Orders to be Executed: ", validConditionalOrders.length);
+            logger.info(`Total Orders to be Executed: ${validConditionalOrders.length}`);
             if (validConditionalOrders.length > 0) {
                 // Create Payload
                 const executeCalls = validConditionalOrders.slice(0, 50).map(order => {
@@ -64,12 +63,19 @@ export async function executeOrders() {
                     }
                 })
 
+                // Estimate gas and gasprice
+                const gasLimit = await multicall.estimateGas.aggregate3(executeCalls);
+                console.log('gasLimit', gasLimit.toString());
+
+                const gasPrice = await rpcprovider.getGasPrice()
+                console.log('gasPrice', gasPrice);
+
                 const tx = await multicall.connect(signer).aggregate3(executeCalls, {
-                    gasLimit: '2500000', 
-                    // ethers.utils.parseUnits('5', 'gwei');
+                    gasLimit: gasLimit.mul(6).div(5),
+                    gasPrice: gasPrice.mul(6).div(2),
                 });
                 await tx.wait(2);
-                console.log("Order Tx", tx.hash);
+                logger.info(`Order Filled Tx: ${tx.hash}`)
                 // return {
                 //     canExec: true,
                 //     callData: [
@@ -82,21 +88,21 @@ export async function executeOrders() {
             }
             else {
                 logger.info("No Valid Orders Found Continuing ....");
-                await new Promise(res => setTimeout(res, 1000));
+                await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
                 continue;
             }
 
         } else {
             logger.info("No Conditional Orders Found Restarting.....");
             // No task available, wait a bit before retrying, Ideally for bsc it's 3 seconds
-            await new Promise(res => setTimeout(res, 1000));
+            await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
         }
     }
 }
 
 
 export const seedOrders = async () => {
-    logger.info(`Orders Seeding....`);
+    logger.info(`Seed Conditional Orders`);
 
     const lastProcessedBlockFile: string = "data/lastProcessedBlock.json";
     const ordersToFullfillFile: string = "data/ordersToFullfill.json";
@@ -126,10 +132,9 @@ export const seedOrders = async () => {
 const queryHistoricEventsAndSave = async (lastProcessedBlock: number, currentBlock: number, contract: ethers.Contract, contractAddress: string) => {
     try {
         let fromBlock = lastProcessedBlock + 1;
-
         while (fromBlock <= currentBlock) {
             const toBlock = Math.min(fromBlock + CHUNK_SIZE - 1, currentBlock);
-            console.log(`Fetching events from: ${fromBlock}, to:${toBlock}`);
+            // console.log(`Fetching events from: ${fromBlock}, to:${toBlock}`);
 
             // Retry mechanism for transient errors
             let events: ethers.Event[] = [];
@@ -140,7 +145,7 @@ const queryHistoricEventsAndSave = async (lastProcessedBlock: number, currentBlo
                     events = await contract.queryFilter({ address: contractAddress }, fromBlock, toBlock);
                     break; // Exit loop if successful
                 } catch (error) {
-                    console.error(`Error fetching events, attempts left: ${attempts}, Error: ${error}`);
+                    logger.error(`Error fetching events, attempts left: ${attempts}, Error: ${error}`);
                     attempts--;
                     if (attempts === 0) {
                         throw new Error(`Failed to fetch events after multiple attempts.`);
@@ -172,12 +177,12 @@ const queryHistoricEventsAndSave = async (lastProcessedBlock: number, currentBlo
                         Number(conditionalOrderType),
                     );
 
-                    console.log(`ConditionalOrderPlaced: Account: ${account},ID:${conditionalOrderId},${blockNumber},${transactionHash}`);
+                    logger.info(`ConditionalOrderPlaced: Account: ${account},ID:${conditionalOrderId},${blockNumber},${transactionHash}`);
                 } else if (eventName === "ConditionalOrderCancelled" || eventName === "ConditionalOrderFilled") {
                     const account = args?.[0];
                     const conditionalOrderId = args?.[1].toNumber();
                     deleteOrders(account, conditionalOrderId)
-                    console.log(`${eventName === "ConditionalOrderCancelled" ? "ConditionalOrderCancelled" : "ConditionalOrderFilled"}: Account:${account},ID:${conditionalOrderId},${blockNumber},${transactionHash}`);
+                    logger.info(`${eventName === "ConditionalOrderCancelled" ? "ConditionalOrderCancelled" : "ConditionalOrderFilled"}: Account:${account},ID:${conditionalOrderId},${blockNumber},${transactionHash}`);
                 }
             }
 
@@ -188,7 +193,7 @@ const queryHistoricEventsAndSave = async (lastProcessedBlock: number, currentBlo
         }
 
     } catch (error) {
-        console.error("Error in queryHistoricEvents:", error);
+        logger.error("Error in queryHistoricEvents:", error);
     }
 };
 
@@ -196,13 +201,7 @@ const validLimitOrder = (oraclePrice: ethers.BigNumber | undefined, targetPrice:
     if (oraclePrice === undefined) {
         return false;
     }
-    if (long) {
-
-        console.log(`oraclePrice: ${ethers.utils.formatEther(oraclePrice)}`)
-        console.log(`targetPrice: ${ethers.utils.formatEther(targetPrice)}`)
-
-        return oraclePrice.lte(targetPrice);
-    }
+    if (long) return oraclePrice.lte(targetPrice);
     return oraclePrice.gte(targetPrice);
 }
 

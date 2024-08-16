@@ -1,0 +1,19 @@
+`
+    1. Fill in the .env
+    2. Intitialize the lastProcessedBlock as 0 and ordersToFullfill as [] in the data/json files
+`
+
+`
+get executorFee
+check if executorFee > 0, if not, skip below
+determine # pages: order.length % pageSize
+for loop for each page
+for loop for each order in page and push to mutlicall 
+push mutlicall call list to Final call list
+exit loops
+
+Promise.all finall mutliple multicalls
+map result to orders and filter if balance >= executorFee
+push filtered list into final payload list
+if final payload list >50 , slice to 50 and execute payload
+`

@@ -5,9 +5,6 @@ import { IORDER } from './types';
 // Shared Array to store event data
 let orders: Array<IORDER> = [];
 
-// To remove duplicate events
-let processedEvents = new Set();
-
 export function initializeOrders(initialOrders: Array<IORDER>) {
     console.log("Initial Orders", initialOrders);
     orders = initialOrders;
