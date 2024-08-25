@@ -14,88 +14,95 @@ export async function executeOrders() {
     const lastProcessedBlockFile: string = "data/lastProcessedBlock.json";
 
     while (true) {
-        // 1. Fetch Historic Events data and save it.
-        const startBlock = JSON.parse(fs.readFileSync(lastProcessedBlockFile, 'utf-8'));
-        const currentBlock = await rpcprovider.getBlockNumber();
-        logger.info(`While Only lastProcessedBlock: ${startBlock}, currentBlock: ${currentBlock}`);
+        try {
+            // 1. Fetch Historic Events data and save it.
+            const startBlock = JSON.parse(fs.readFileSync(lastProcessedBlockFile, 'utf-8'));
+            const currentBlock = await rpcprovider.getBlockNumber();
+            logger.info(`While Only lastProcessedBlock: ${startBlock}, currentBlock: ${currentBlock}`);
 
-        const { eventsContract } = createContracts();
-        await queryHistoricEventsAndSave(startBlock, currentBlock, eventsContract, eventsContract.address);
+            const { eventsContract } = createContracts();
+            await queryHistoricEventsAndSave(startBlock, currentBlock, eventsContract, eventsContract.address);
 
-        fs.writeFileSync("data/lastProcessedBlock.json", currentBlock.toString());
+            fs.writeFileSync("data/lastProcessedBlock.json", currentBlock.toString());
 
-        // 2. Execute the orders
-        let orders = showOrders();
-        if (orders.length > 0) {
-            logger.info(`Total Available Orders: ${orders.length}`);
+            // 2. Execute the orders
+            let orders = showOrders();
+            if (orders.length > 0) {
+                logger.info(`Total Available Orders: ${orders.length}`);
 
-            const { multicall, accountContract } = createContracts();
+                const { multicall, accountContract } = createContracts();
 
-            // Find Onchain Price
-            const zUSDRates: IRates[] = await accountContract.zUSDRates();
-            const zUSDRatesMapping = zUSDRates.reduce((rates, rate) => {
-                rates[rate.marketKey] = rate.price;
-                return rates;
-            }, {} as Record<string, ethers.BigNumber>)
+                // Find Onchain Price
+                const zUSDRates: IRates[] = await accountContract.zUSDRates();
+                const zUSDRatesMapping = zUSDRates.reduce((rates, rate) => {
+                    rates[rate.marketKey] = rate.price;
+                    return rates;
+                }, {} as Record<string, ethers.BigNumber>)
 
-            // Match orders
-            let validConditionalOrders: Array<IORDER> = orders.filter(order => {
-                // Limit Orders
-                if (order.conditionalOrderType === 0) {
-                    return validLimitOrder(zUSDRatesMapping[order.marketKey], order.targetPrice, order.long)
-                }
-                // Stop Loss Orders
-                else {
-                    return validStopOrder(zUSDRatesMapping[order.marketKey], order.targetPrice, order.long)
-                }
-            })
-
-            logger.info(`Total Orders to be Executed: ${validConditionalOrders.length}`);
-            if (validConditionalOrders.length > 0) {
-                // Create Payload
-                const executeCalls = validConditionalOrders.slice(0, 50).map(order => {
-                    // console.log("OrderReady", order.account, order.conditionalOrderId, order.long, order.targetPrice, order.conditionalOrderType)
-
-                    return {
-                        target: order.account,
-                        callData: accountContract.interface.encodeFunctionData("executeConditionalOrderWithPaymentReceiver", [order.conditionalOrderId, "0x3a10A18Ca6d9378010D446068d2Fd4dE5D272915"]),
-                        allowFailure: true,
+                // Match orders
+                let validConditionalOrders: Array<IORDER> = orders.filter(order => {
+                    // Limit Orders
+                    if (order.conditionalOrderType === 0) {
+                        return validLimitOrder(zUSDRatesMapping[order.marketKey], order.targetPrice, order.long)
+                    }
+                    // Stop Loss Orders
+                    else {
+                        return validStopOrder(zUSDRatesMapping[order.marketKey], order.targetPrice, order.long)
                     }
                 })
 
-                // Estimate gas and gasprice
-                const gasLimit = await multicall.estimateGas.aggregate3(executeCalls);
-                console.log('gasLimit', gasLimit.toString());
+                logger.info(`Total Orders to be Executed: ${validConditionalOrders.length}`);
+                if (validConditionalOrders.length > 0) {
+                    // Create Payload
+                    const executeCalls = validConditionalOrders.slice(0, 50).map(order => {
+                        // console.log("OrderReady", order.account, order.conditionalOrderId, order.long, order.targetPrice, order.conditionalOrderType)
 
-                const gasPrice = await rpcprovider.getGasPrice()
-                console.log('gasPrice', gasPrice);
+                        return {
+                            target: order.account,
+                            callData: accountContract.interface.encodeFunctionData("executeConditionalOrderWithPaymentReceiver", [order.conditionalOrderId, "0x3a10A18Ca6d9378010D446068d2Fd4dE5D272915"]),
+                            allowFailure: true,
+                        }
+                    })
 
-                const tx = await multicall.connect(signer).aggregate3(executeCalls, {
-                    gasLimit: gasLimit.mul(6).div(5),
-                    gasPrice: gasPrice.mul(6).div(2),
-                });
-                await tx.wait(2);
-                logger.info(`Order Filled Tx: ${tx.hash}`)
-                // return {
-                //     canExec: true,
-                //     callData: [
-                //         {
-                //             to: multicall.address,
-                //             data: multicall.interface.encodeFunctionData("aggregate3", [executeCalls]),
-                //         },
-                //     ],
-                // };
-            }
-            else {
-                logger.info("No Valid Orders Found Continuing ....");
+                    // Estimate gas and gasprice
+                    const gasLimit = await multicall.estimateGas.aggregate3(executeCalls);
+                    console.log('gasLimit', gasLimit.toString());
+
+                    const gasPrice = await rpcprovider.getGasPrice()
+                    console.log('gasPrice', gasPrice);
+
+                    const tx = await multicall.connect(signer).aggregate3(executeCalls, {
+                        gasLimit: gasLimit.mul(6).div(5),
+                        gasPrice: gasPrice.mul(6).div(2),
+                    });
+                    await tx.wait(2);
+                    logger.info(`Order Filled Tx: ${tx.hash}`)
+                    // return {
+                    //     canExec: true,
+                    //     callData: [
+                    //         {
+                    //             to: multicall.address,
+                    //             data: multicall.interface.encodeFunctionData("aggregate3", [executeCalls]),
+                    //         },
+                    //     ],
+                    // };
+                }
+                else {
+                    logger.info("No Valid Orders Found Continuing ....");
+                    await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
+                    continue;
+                }
+
+            } else {
+                logger.info("No Conditional Orders Found Restarting.....");
+                // No task available, wait a bit before retrying, Ideally for bsc it's 3 seconds
                 await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
-                continue;
             }
-
-        } else {
-            logger.info("No Conditional Orders Found Restarting.....");
-            // No task available, wait a bit before retrying, Ideally for bsc it's 3 seconds
+        }
+        catch (error) {
+            logger.error(`error ${error as Error}`);
             await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
+            continue;
         }
     }
 }
