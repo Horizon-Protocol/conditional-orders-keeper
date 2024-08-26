@@ -2,8 +2,8 @@ import fs from 'fs';
 import { ethers } from 'ethers';
 
 import { IORDER, IRates } from './types';
-import { CHUNK_SIZE, seedBlock, RESTART_TIMEOUT } from './config';
-import { initializeOrders, showOrders, pushOrders, deleteOrders } from './state';
+import { CHUNK_SIZE, seedBlock, RESTART_TIMEOUT, MAX_RETRIES, paymentReceiverAddress } from './config';
+import { showLastProcessedBlock, showOrders, pushOrders, deleteOrders, incrementOrderRetries, saveLastProcessedBlock } from './state';
 import { rpcprovider, signer, createContracts } from './utils';
 import { logger } from './logger';
 
@@ -16,14 +16,15 @@ export async function executeOrders() {
     while (true) {
         try {
             // 1. Fetch Historic Events data and save it.
-            const startBlock = JSON.parse(fs.readFileSync(lastProcessedBlockFile, 'utf-8'));
+            const startBlock = showLastProcessedBlock();
             const currentBlock = await rpcprovider.getBlockNumber();
+
             logger.info(`While Only lastProcessedBlock: ${startBlock}, currentBlock: ${currentBlock}`);
 
             const { eventsContract } = createContracts();
             await queryHistoricEventsAndSave(startBlock, currentBlock, eventsContract, eventsContract.address);
 
-            fs.writeFileSync("data/lastProcessedBlock.json", currentBlock.toString());
+            saveLastProcessedBlock(currentBlock);
 
             // 2. Execute the orders
             let orders = showOrders();
@@ -51,29 +52,33 @@ export async function executeOrders() {
                     }
                 })
 
-                logger.info(`Total Orders to be Executed: ${validConditionalOrders.length}`);
-                if (validConditionalOrders.length > 0) {
+                logger.info(`Total Valid Orders: ${validConditionalOrders.length}`);
+
+                // Filter out max-retries
+                let executableConditionalOrders: Array<IORDER> = validConditionalOrders.filter(order => order.retries < MAX_RETRIES)
+
+                logger.info(`Total Executable Orders: ${executableConditionalOrders.length}`);
+                if (executableConditionalOrders.length > 0) {
                     // Create Payload
-                    const executeCalls = validConditionalOrders.slice(0, 50).map(order => {
-                        // console.log("OrderReady", order.account, order.conditionalOrderId, order.long, order.targetPrice, order.conditionalOrderType)
+                    const executeCalls = executableConditionalOrders.slice(0, 50).map(order => {
+                        incrementOrderRetries(order.account, order.conditionalOrderId);
 
                         return {
                             target: order.account,
-                            callData: accountContract.interface.encodeFunctionData("executeConditionalOrderWithPaymentReceiver", [order.conditionalOrderId, "0x3a10A18Ca6d9378010D446068d2Fd4dE5D272915"]),
+                            callData: accountContract.interface.encodeFunctionData("executeConditionalOrderWithPaymentReceiver", [order.conditionalOrderId, paymentReceiverAddress]),
                             allowFailure: true,
                         }
                     })
 
                     // Estimate gas and gasprice
                     const gasLimit = await multicall.estimateGas.aggregate3(executeCalls);
-                    console.log('gasLimit', gasLimit.toString());
-
-                    const gasPrice = await rpcprovider.getGasPrice()
-                    console.log('gasPrice', gasPrice);
+                    const gasPrice = await rpcprovider.getGasPrice();                    
+                    
+                    logger.info(`GasLimit: ${gasLimit.toString()}, GasPrice: ${gasPrice.toString()}`);
 
                     const tx = await multicall.connect(signer).aggregate3(executeCalls, {
                         gasLimit: gasLimit.mul(6).div(5),
-                        gasPrice: gasPrice.mul(6).div(2),
+                        gasPrice: gasPrice.mul(6).div(5),
                     });
                     await tx.wait(2);
                     logger.info(`Order Filled Tx: ${tx.hash}`)
@@ -111,12 +116,8 @@ export async function executeOrders() {
 export const seedOrders = async () => {
     logger.info(`Seed Conditional Orders`);
 
-    const lastProcessedBlockFile: string = "data/lastProcessedBlock.json";
-    const ordersToFullfillFile: string = "data/ordersToFullfill.json";
     let lastProcessedBlock: number = 0;
-    if (fs.existsSync(lastProcessedBlockFile) && fs.existsSync(ordersToFullfillFile)) {
-        lastProcessedBlock = JSON.parse(fs.readFileSync(lastProcessedBlockFile, 'utf-8'));
-    }
+    lastProcessedBlock = showLastProcessedBlock();
 
     // 1. Fetch Historic Events data and save it.
     const currentBlock = await rpcprovider.getBlockNumber();
@@ -128,12 +129,13 @@ export const seedOrders = async () => {
     }
     else {
         startBlock = lastProcessedBlock;
-        initializeOrders(JSON.parse(fs.readFileSync(ordersToFullfillFile, 'utf-8')));
+        // initializeOrders(JSON.parse(fs.readFileSync(ordersToFullfillFile, 'utf-8')));
     }
 
     const { eventsContract } = createContracts();
     await queryHistoricEventsAndSave(startBlock, currentBlock, eventsContract, eventsContract.address);
-    fs.writeFileSync("data/lastProcessedBlock.json", currentBlock.toString());
+
+    saveLastProcessedBlock(currentBlock);
 }
 
 const queryHistoricEventsAndSave = async (lastProcessedBlock: number, currentBlock: number, contract: ethers.Contract, contractAddress: string) => {
@@ -182,6 +184,8 @@ const queryHistoricEventsAndSave = async (lastProcessedBlock: number, currentBlo
                         Number(sizeDelta) > 0 ? true : false,
                         targetPrice,
                         Number(conditionalOrderType),
+                        transactionHash,
+                        blockNumber
                     );
 
                     logger.info(`ConditionalOrderPlaced: Account: ${account},ID:${conditionalOrderId},${blockNumber},${transactionHash}`);

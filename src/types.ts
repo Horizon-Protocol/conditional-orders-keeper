@@ -6,7 +6,10 @@ export type IORDER = {
     marketKey: string;
     long: boolean;
     targetPrice: ethers.BigNumber;
-    conditionalOrderType: number
+    conditionalOrderType: number;
+    retries: number;
+    transactionHash: string;
+    blockNumber: number;
 }
 
 export type IRates  = {
