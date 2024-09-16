@@ -2,7 +2,7 @@ import fs from 'fs';
 import { ethers } from "ethers";
 import { IORDER } from './types';
 
-import { etherscanUrl, network, MAX_RETRIES } from './config'
+import { etherscanUrl, network, MAX_RETRIES, ERROR_MAX_RETRIES } from './config'
 
 // Shared Array to store event data
 // let ordersMemory: Array<IORDER> = [];
@@ -10,6 +10,7 @@ import { etherscanUrl, network, MAX_RETRIES } from './config'
 const lastProcessedBlockFile: string = `data/${network}/lastProcessedBlock.json`;
 const currentOrdersFile: string = `data/${network}/currentOrders.json`;
 const failedOrdersFile: string = `data/${network}/failedOrders.json`;
+const droppedOrdersFile: string = `data/${network}/droppedOrders.json`;
 
 
 export const showLastProcessedBlock = (): number => {
@@ -30,6 +31,10 @@ const saveCurrentOrders = (data: IORDER[]): void => {
 
 const saveFailedOrders = (data: IORDER[]): void => {
     fs.writeFileSync(failedOrdersFile, JSON.stringify(data, null, 2), "utf8");
+};
+
+const saveDroppedOrders = (data: IORDER[]): void => {
+    fs.writeFileSync(droppedOrdersFile, JSON.stringify(data, null, 2), "utf8");
 };
 
 // export function initializeOrders(initialOrders: Array<IORDER>) {
@@ -53,6 +58,14 @@ export const showCurrentOrders = (): IORDER[] => {
 export const showFailedOrders = (): IORDER[] => {
     if (fs.existsSync(failedOrdersFile)) {
         const fileContent = fs.readFileSync(failedOrdersFile, "utf8");
+        return JSON.parse(fileContent);
+    }
+    return [];
+};
+
+export const showDroppedOrders = (): IORDER[] => {
+    if (fs.existsSync(droppedOrdersFile)) {
+        const fileContent = fs.readFileSync(droppedOrdersFile, "utf8");
         return JSON.parse(fileContent);
     }
     return [];
@@ -83,7 +96,7 @@ export function pushOrders(
             long: long,
             targetPrice: targetPrice,
             conditionalOrderType: conditionalOrderType,
-            transactionHash: etherscanUrl + '/tx/'+ transactionHash,
+            transactionHash: etherscanUrl + '/tx/' + transactionHash,
             blockNumber,
             retries: 0
         });
@@ -92,7 +105,6 @@ export function pushOrders(
     saveCurrentOrders(orders);
 }
 
-// Check only one list and not both
 export function deleteOrders(
     account: string,
     conditionalOrderId: number,
@@ -100,11 +112,17 @@ export function deleteOrders(
     let currentOrders: Array<IORDER> = showCurrentOrders();
     let failedOrders: Array<IORDER> = showFailedOrders();
 
-    currentOrders = currentOrders.filter(order => !(order.account === account && order.conditionalOrderId === conditionalOrderId));
-    failedOrders = failedOrders.filter(order => !(order.account === account && order.conditionalOrderId === conditionalOrderId));
-
-    saveCurrentOrders(currentOrders);
-    saveFailedOrders(failedOrders);
+    // Find the order in currentOrders else find failedOrders. Order always stays in one place.
+    let order = currentOrders.find(order => (order.account === account && order.conditionalOrderId === conditionalOrderId));
+    if (order) {
+        // Remove from currentOrders
+        currentOrders = currentOrders.filter(order => !(order.account === account && order.conditionalOrderId === conditionalOrderId));
+        saveCurrentOrders(currentOrders);
+    }
+    else {
+        failedOrders = failedOrders.filter(order => !(order.account === account && order.conditionalOrderId === conditionalOrderId));
+        saveFailedOrders(failedOrders);
+    }
 }
 
 export function incrementOrderRetries(
@@ -129,10 +147,10 @@ export function incrementOrderRetries(
     }
     else if (retriesCounter === MAX_RETRIES) {
         // Find the order in currentOrders and move it to failedOrders
-        let order = currentOrders.find(order => order.conditionalOrderId === conditionalOrderId);
+        let order = currentOrders.find(order => (order.conditionalOrderId === conditionalOrderId && order.account === account));
         if (order) {
             // Remove from currentOrders
-            currentOrders = currentOrders.filter(order => order.conditionalOrderId !== conditionalOrderId);
+            currentOrders = currentOrders.filter(order => !(order.account === account && order.conditionalOrderId === conditionalOrderId));
 
             order.retries = retriesCounter;
 
@@ -148,6 +166,31 @@ export function incrementOrderRetries(
         }
     }
     else {
+        if (retriesCounter === ERROR_MAX_RETRIES) {
+            let droppedOrders: Array<IORDER> = showDroppedOrders();
+
+            // Find the order in failedOrders and move it to droppedOrders
+            let order = failedOrders.find(order => (order.conditionalOrderId === conditionalOrderId && order.account === account));
+            if (order) {
+                // Remove from failedOrders
+                failedOrders = failedOrders.filter(order => !(order.account === account && order.conditionalOrderId === conditionalOrderId));
+
+                order.retries = retriesCounter;
+
+                // Push to droppedorders
+                droppedOrders.push(order);
+
+                saveFailedOrders(failedOrders);
+                saveDroppedOrders(droppedOrders);
+
+                return;
+            }
+            else {
+                console.error(`Order ${account}-${conditionalOrderId} should exist in failedOrders but was not found.`);
+                return;
+            }
+        }
+
         // Increment retries for the matching order
         let incrementedorders: Array<IORDER> = failedOrders.map(order => {
             if (order.account === account && order.conditionalOrderId === conditionalOrderId) {

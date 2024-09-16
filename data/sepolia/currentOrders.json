@@ -72,18 +72,6 @@
     "retries": 0
   },
   {
-    "account": "0xDf3F08bE7d1C63871975a34EacCdd180381F1993",
-    "conditionalOrderId": 56,
-    "marketKey": "0x7a424e4250455250000000000000000000000000000000000000000000000000",
-    "long": false,
-    "targetPrice": {
-      "type": "BigNumber",
-      "hex": "0x1e162c177be5cc0000"
-    },
-    "conditionalOrderType": 0,
-    "retries": 0
-  },
-  {
     "account": "0xAc499055F47A4852d66E58D3f9a234c7De9Ab62d",
     "conditionalOrderId": 50,
     "marketKey": "0x7a42544350455250000000000000000000000000000000000000000000000000",
@@ -179,6 +167,34 @@
     "conditionalOrderType": 0,
     "transactionHash": "https://sepolia.arbiscan.io//tx/0x1eeb70733566688b307f31f34cc6387c71cee17a1bcfa375f1a3b293c91dd879",
     "blockNumber": 69061931,
+    "retries": 0
+  },
+  {
+    "account": "0xAc499055F47A4852d66E58D3f9a234c7De9Ab62d",
+    "conditionalOrderId": 54,
+    "marketKey": "0x7a42544350455250000000000000000000000000000000000000000000000000",
+    "long": false,
+    "targetPrice": {
+      "type": "BigNumber",
+      "hex": "0x0cbc37279eb76f540000"
+    },
+    "conditionalOrderType": 0,
+    "transactionHash": "https://sepolia.arbiscan.io/tx/0x5cca76b69ad39fa7e71315c1c526af561a3a7060deaaebf0faf86275b5ce4a87",
+    "blockNumber": 80959944,
+    "retries": 0
+  },
+  {
+    "account": "0x0C9F3d810002356A71a8f16Af92d9a0259c29a06",
+    "conditionalOrderId": 20,
+    "marketKey": "0x7a42544350455250000000000000000000000000000000000000000000000000",
+    "long": false,
+    "targetPrice": {
+      "type": "BigNumber",
+      "hex": "0x0c4d9b78bd01d3500000"
+    },
+    "conditionalOrderType": 0,
+    "transactionHash": "https://sepolia.arbiscan.io/tx/0xbe95cc6fe1a3708f1c41ef466e50c8a7d8b350af758087a07b05b6652ea8ed61",
+    "blockNumber": 81259827,
     "retries": 0
   }
 ]

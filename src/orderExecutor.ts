@@ -7,7 +7,7 @@ import { showLastProcessedBlock, showCurrentOrders, pushOrders, deleteOrders, in
 import { rpcprovider, signer, createContracts, validLimitOrder, validStopOrder } from './utils';
 import { makeLogger } from './logger';
 
-const MULTICALL_PAGE_SIZE = 2;
+const MULTICALL_PAGE_SIZE = 10;
 const mainKeeperLogger = makeLogger('MAIN_KEEPER', chalk.magentaBright);
 
 export async function executeOrders() {
@@ -63,20 +63,19 @@ export async function executeOrders() {
                             return {
                                 target: order.account,
                                 callData: accountContract.interface.encodeFunctionData("executeConditionalOrderWithPaymentReceiver", [order.conditionalOrderId, paymentReceiverAddress]),
-                                allowFailure: true, // Allow failures in static calls
+                                allowFailure: true,
                             }
                         })
 
                         // Add the static call to the promises array
                         staticCallPromises.push(multicall.callStatic.aggregate3(staticCalls));
-
                     }
                     console.log('staticCallPromises', staticCallPromises);
                     mainKeeperLogger.info(`MAIN_KEEPER: StaticCall Promises: ${staticCallPromises}`);
                     
                     // Execute all static calls in parallel and accumulate results
                     const staticResultsArray: STATIC_CALL_RESULT[][] = await Promise.all(staticCallPromises);
-                    
+
                     console.log('staticResults', staticResultsArray);
                     mainKeeperLogger.info(`MAIN_KEEPER: StaticCall Results: ${staticResultsArray}`);
 
@@ -94,14 +93,13 @@ export async function executeOrders() {
 
                     if (successfulOrders.length > 0) {
                         // Create Payload
-                        const executeCalls = successfulOrders.slice(0, 50).map(order => {
+                        const executeCalls = successfulOrders.slice(0, MULTICALL_PAGE_SIZE).map(order => {
                             incrementOrderRetries(order.account, order.conditionalOrderId, order.retries + 1);
                             return {
                                 target: order.account,
                                 callData: accountContract.interface.encodeFunctionData("executeConditionalOrderWithPaymentReceiver", [order.conditionalOrderId, paymentReceiverAddress]),
-                                allowFailure: true, // Allow failures in the actual execution
-                            }
-                        })
+                                allowFailure: true,                            }
+                        });
 
                         // Estimate gas and gasprice
                         const gasLimit = await multicall.estimateGas.aggregate3(executeCalls);
@@ -109,6 +107,7 @@ export async function executeOrders() {
 
                         mainKeeperLogger.info(`MAIN_KEEPER: GasLimit: ${gasLimit.toString()}, GasPrice: ${gasPrice.toString()}`);
 
+                        // Execute the transaction
                         const tx = await multicall.connect(signer).aggregate3(executeCalls, {
                             gasLimit: gasLimit.mul(6).div(5),
                             gasPrice: gasPrice.mul(6).div(5),
