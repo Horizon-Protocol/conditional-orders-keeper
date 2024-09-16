@@ -17,3 +17,12 @@ export type IRates  = {
     price: ethers.BigNumber;
     priceOracle: number;
 }
+
+export type STATIC_CALL_ERROR = {
+    errorArgs: Array<string>;
+}
+
+export type STATIC_CALL_RESULT = {
+    success: boolean,
+    returnData: string,
+}

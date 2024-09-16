@@ -2,5 +2,5 @@
     "execMap": {
         "ts": "ts-node"
     },
-    "ignore": ["data/*.json", "README"]
+    "ignore": ["data/bsc/*.json", "data/sepolia/*.json", "README"]
 }

@@ -28,3 +28,19 @@ export const createContracts = () => {
 
     return { eventsContract, multicall, accountContract };
 }
+
+export const validLimitOrder = (oraclePrice: ethers.BigNumber | undefined, targetPrice: ethers.BigNumber, long: boolean): boolean => {
+    if (oraclePrice === undefined) {
+        return false;
+    }
+    if (long) return oraclePrice.lte(targetPrice);
+    return oraclePrice.gte(targetPrice);
+}
+
+export const validStopOrder = (oraclePrice: ethers.BigNumber | undefined, targetPrice: ethers.BigNumber, long: boolean): boolean => {
+    if (oraclePrice === undefined) {
+        return false;
+    }
+    if (long) return oraclePrice.gte(targetPrice);
+    return oraclePrice.lte(targetPrice);
+}

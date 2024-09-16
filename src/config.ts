@@ -9,6 +9,8 @@ export const eventsContractAddress = process.env.EVENTS!
 export const multicallAddress = process.env.MULTICALL!
 export const accountContractAddress = process.env.ACCOUNT!
 export const paymentReceiverAddress = process.env.PAYMENTRECEIVER!
+export const etherscanUrl = process.env.ETHERSCAN_URL!
+export const network = process.env.NETWORK!
 
 
 
