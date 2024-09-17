@@ -44,3 +44,19 @@ export const validStopOrder = (oraclePrice: ethers.BigNumber | undefined, target
     if (long) return oraclePrice.gte(targetPrice);
     return oraclePrice.lte(targetPrice);
 }
+
+export const sendTG = async (text: string) => {
+    console.log("Sending TG Message", text);
+    const headers = { "Accept-Encoding": "zh-CN,zh;q=0.9", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36" };
+    // const teleURL = `https://api.telegram.org/bot7086089934:AAG9k8WK1X_Ozjq3gMbQFRoPrXKjA_zdsH4/sendMessage?chat_id=-1002487098460-4599771883&text=${text}`
+    const teleURL = `https://api.telegram.org/bot7086089934:AAG9k8WK1X_Ozjq3gMbQFRoPrXKjA_zdsH4/sendMessage?chat_id=-1002487098460&text=${text}`
+    // 5303409425:AAEtJSpaMsN0L3Eg_23pVBwqPVymbLDFynk/
+
+
+    const response = await fetch(teleURL, {
+        method: 'GET',
+        headers: headers
+    })
+    // const data = await response.json();
+    // console.log('data', data);
+}

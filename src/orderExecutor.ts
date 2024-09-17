@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import { IORDER, IRates, STATIC_CALL_RESULT } from './types';
 import { CHUNK_SIZE, seedBlock, RESTART_TIMEOUT, MAX_RETRIES, paymentReceiverAddress } from './config';
 import { showLastProcessedBlock, showCurrentOrders, pushOrders, deleteOrders, incrementOrderRetries, saveLastProcessedBlock } from './state';
-import { rpcprovider, signer, createContracts, validLimitOrder, validStopOrder } from './utils';
+import { rpcprovider, signer, createContracts, validLimitOrder, validStopOrder, sendTG } from './utils';
 import { makeLogger } from './logger';
 
 const MULTICALL_PAGE_SIZE = 10;
@@ -114,6 +114,7 @@ export async function executeOrders() {
                         });
                         await tx.wait(2);
                         mainKeeperLogger.info(`MAIN_KEEPER: Order Filled Tx: ${chalk.green(tx.hash)}`)
+                        await sendTG(`MAIN_KEEPER - Order Filled Tx: ${tx.hash}`)
                     }
                     else {
                         mainKeeperLogger.info("MAIN_KEEPER: Restarting ....");
@@ -136,6 +137,7 @@ export async function executeOrders() {
         }
         catch (error) {
             mainKeeperLogger.error(`error ${error as Error}`);
+            await sendTG(`MAIN_KEEPER - ${(error as Error).toString()}}`)
             await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
             continue;
         }

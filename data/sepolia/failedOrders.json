@@ -48,19 +48,5 @@
     },
     "conditionalOrderType": 1,
     "retries": 1
-  },
-  {
-    "account": "0xDf3F08bE7d1C63871975a34EacCdd180381F1993",
-    "conditionalOrderId": 65,
-    "marketKey": "0x7a42544350455250000000000000000000000000000000000000000000000000",
-    "long": true,
-    "targetPrice": {
-      "type": "BigNumber",
-      "hex": "0x0c353677953595880000"
-    },
-    "conditionalOrderType": 0,
-    "transactionHash": "https://sepolia.arbiscan.io/tx/0x908291a88dfe111d5c9028cde26abb64844fc7334c0587448994bb5cc9e81519",
-    "blockNumber": 79874802,
-    "retries": 4
   }
 ]

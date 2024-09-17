@@ -2,9 +2,9 @@ import { ethers } from 'ethers';
 import chalk from 'chalk';
 
 import { IORDER, IRates, STATIC_CALL_ERROR, STATIC_CALL_RESULT } from './types';
-import { RESTART_TIMEOUT, paymentReceiverAddress } from './config';
+import { ERROR_RESTART_TIMEOUT, paymentReceiverAddress } from './config';
 import { showFailedOrders, incrementOrderRetries } from './state';
-import { rpcprovider, signer, createContracts, validLimitOrder, validStopOrder } from './utils';
+import { rpcprovider, signer, createContracts, validLimitOrder, validStopOrder, sendTG } from './utils';
 import { makeLogger } from './logger';
 
 const MULTICALL_PAGE_SIZE = 10;
@@ -71,7 +71,7 @@ export async function executeFailedOrders() {
                     // Execute all static calls in parallel and accumulate results
                     const staticResultsArray: STATIC_CALL_RESULT[][] = await Promise.all(staticCallPromises);
 
-                    console.log('staticResults', staticResultsArray);
+                    // console.log('staticResults', staticResultsArray);
                     errorKeeperLogger.info(`ERROR_KEEPER: StaticCall Results: ${staticResultsArray}`);
 
                     // Filter and accumulate the successful orders
@@ -92,7 +92,8 @@ export async function executeFailedOrders() {
                             return {
                                 target: order.account,
                                 callData: accountContract.interface.encodeFunctionData("executeConditionalOrderWithPaymentReceiver", [order.conditionalOrderId, paymentReceiverAddress]),
-                                allowFailure: true,                            }
+                                allowFailure: true,
+                            }
                         });
 
                         // Estimate gas and gasprice
@@ -108,28 +109,31 @@ export async function executeFailedOrders() {
                         });
                         await tx.wait(2);
                         errorKeeperLogger.info(`ERROR_KEEPER: Order Filled Tx: ${chalk.green(tx.hash)}`);
+                        await sendTG(`ERROR_KEEPER - Order Filled Tx: ${tx.hash}`)
                     }
                     else {
                         errorKeeperLogger.info("ERROR_KEEPER: Restarting ....");
-                        await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
+                        await new Promise(res => setTimeout(res, ERROR_RESTART_TIMEOUT));
                         continue;
                     }
                 } else {
                     errorKeeperLogger.info("ERROR_KEEPER: Restarting ....");
-                    await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
+                    await new Promise(res => setTimeout(res, ERROR_RESTART_TIMEOUT));
                     continue;
                 }
 
             } else {
                 errorKeeperLogger.info("ERROR_KEEPER: Restarting.....");
                 // No task available, wait a bit before retrying, Ideally for bsc it's 3 seconds
-                await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
+                await new Promise(res => setTimeout(res, ERROR_RESTART_TIMEOUT));
                 continue;
             }
         }
         catch (error) {
-            errorKeeperLogger.error(`error ${error as Error}`);
-            await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
+            console.error(`ERROR_KEEPER: error ${error as Error}`);
+            errorKeeperLogger.error(`ERROR_KEEPER: error ${error as Error}`);
+            await sendTG(`ERROR_KEEPER - ${(error as Error).toString()}}`)
+            await new Promise(res => setTimeout(res, ERROR_RESTART_TIMEOUT));
             continue;
         }
     }

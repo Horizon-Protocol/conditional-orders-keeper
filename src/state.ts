@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { IORDER } from './types';
 
 import { etherscanUrl, network, MAX_RETRIES, ERROR_MAX_RETRIES } from './config'
+import { sendTG } from './utils'
 
 // Shared Array to store event data
 // let ordersMemory: Array<IORDER> = [];
@@ -182,11 +183,13 @@ export function incrementOrderRetries(
 
                 saveFailedOrders(failedOrders);
                 saveDroppedOrders(droppedOrders);
-
+                
+                sendTG(`STATE: Order ${account}-${conditionalOrderId} should dropped.`);
                 return;
             }
             else {
                 console.error(`Order ${account}-${conditionalOrderId} should exist in failedOrders but was not found.`);
+                sendTG(`STATE: Order ${account}-${conditionalOrderId} should exist in failedOrders but was not found.`);
                 return;
             }
         }

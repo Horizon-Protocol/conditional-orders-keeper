@@ -3,7 +3,7 @@ import chalk from 'chalk';
 
 import { CHUNK_SIZE, seedBlock, RESTART_TIMEOUT } from './config';
 import { showLastProcessedBlock, showCurrentOrders, pushOrders, deleteOrders, saveLastProcessedBlock } from './state';
-import { rpcprovider, createContracts } from './utils';
+import { rpcprovider, createContracts, sendTG } from './utils';
 import { makeLogger } from './logger';
 
 const seedKeeperLogger = makeLogger('SEEDING', chalk.cyanBright);
@@ -16,6 +16,8 @@ export async function seedAndQueryForOrders() {
 
     while (true) {
         try {
+            // throw new Error("DUMMY ERROR");
+            
             // 1. Fetch Historic Events data and save it.
             const startBlock = showLastProcessedBlock();
             const currentBlock = await rpcprovider.getBlockNumber();
@@ -29,6 +31,7 @@ export async function seedAndQueryForOrders() {
             // seedKeeperLogger.info(`QUERYING COMPLETE: lastProcessedBlock: ${startBlock}, currentBlock: ${currentBlock}`);
         } catch (error) {
             seedKeeperLogger.error(`QUERYING: error ${error as Error}`);
+            await sendTG(`QUERYING: error ${error as Error}`);
             await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
             continue;
         }
@@ -56,10 +59,13 @@ export const seedOrders = async () => {
     
         const { eventsContract } = createContracts();
         await queryHistoricEventsAndSave(startBlock, currentBlock, eventsContract, eventsContract.address);
+
+        console.log('Reaching HERE 2')
     
         saveLastProcessedBlock(currentBlock);
     } catch (error) {
-        seedKeeperLogger.error(`QUERYING: error ${error as Error}`);
+        seedKeeperLogger.error(`SEEDING: error ${error as Error}`);
+        await sendTG(`SEEDING: error ${error as Error}`);
     }
 }
 
@@ -67,6 +73,8 @@ const queryHistoricEventsAndSave = async (lastProcessedBlock: number, currentBlo
     try {
         let fromBlock = lastProcessedBlock + 1;
         while (fromBlock <= currentBlock) {
+            // throw new Error("DUMMY ERROR");
+
             const toBlock = Math.min(fromBlock + CHUNK_SIZE - 1, currentBlock);
             // console.log(`Fetching events from: ${fromBlock}, to:${toBlock}`);
 
