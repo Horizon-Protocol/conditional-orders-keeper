@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();  // Load environment variables from .env file 
 
+import axios from 'axios';
 import { ethers } from 'ethers';
 // import { WebSocketProvider } from './customWebsocket';
 import { ABI } from './constants';
@@ -52,11 +53,14 @@ export const sendTG = async (text: string) => {
     const teleURL = `https://api.telegram.org/bot7086089934:AAG9k8WK1X_Ozjq3gMbQFRoPrXKjA_zdsH4/sendMessage?chat_id=-1002487098460&text=${text}`
     // 5303409425:AAEtJSpaMsN0L3Eg_23pVBwqPVymbLDFynk/
 
-
-    const response = await fetch(teleURL, {
-        method: 'GET',
+    await axios.get(teleURL, {
         headers: headers
-    })
+    });
+
+    // const response = await fetch(teleURL, {
+    //     method: 'GET',
+    //     headers: headers
+    // })
     // const data = await response.json();
     // console.log('data', data);
 }

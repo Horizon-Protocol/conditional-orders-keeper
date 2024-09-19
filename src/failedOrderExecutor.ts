@@ -109,7 +109,7 @@ export async function executeFailedOrders() {
                         });
                         await tx.wait(2);
                         errorKeeperLogger.info(`ERROR_KEEPER: Order Filled Tx: ${chalk.green(tx.hash)}`);
-                        await sendTG(`ERROR_KEEPER - Order Filled Tx: ${tx.hash}`)
+                        // await sendTG(`ERROR_KEEPER - Order Filled Tx: ${tx.hash}`)
                     }
                     else {
                         errorKeeperLogger.info("ERROR_KEEPER: Restarting ....");

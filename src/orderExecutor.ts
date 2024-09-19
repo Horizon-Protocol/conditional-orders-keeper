@@ -114,7 +114,7 @@ export async function executeOrders() {
                         });
                         await tx.wait(2);
                         mainKeeperLogger.info(`MAIN_KEEPER: Order Filled Tx: ${chalk.green(tx.hash)}`)
-                        await sendTG(`MAIN_KEEPER - Order Filled Tx: ${tx.hash}`)
+                        // await sendTG(`MAIN_KEEPER - Order Filled Tx: ${tx.hash}`)
                     }
                     else {
                         mainKeeperLogger.info("MAIN_KEEPER: Restarting ....");
