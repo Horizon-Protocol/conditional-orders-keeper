@@ -22,12 +22,13 @@ export async function seedAndQueryForOrders() {
             const startBlock = showLastProcessedBlock();
             const currentBlock = await rpcprovider.getBlockNumber();
 
-            // seedKeeperLogger.info(`QUERYING STARTED: lastProcessedBlock: ${startBlock}, currentBlock: ${currentBlock}`);
+            seedKeeperLogger.info(`QUERYING STARTED: lastProcessedBlock: ${startBlock}, currentBlock: ${currentBlock}`);
             
             const { eventsContract } = createContracts();
             await queryHistoricEventsAndSave(startBlock, currentBlock, eventsContract, eventsContract.address);
             
             saveLastProcessedBlock(currentBlock);
+            await new Promise(res => setTimeout(res, RESTART_TIMEOUT));
             // seedKeeperLogger.info(`QUERYING COMPLETE: lastProcessedBlock: ${startBlock}, currentBlock: ${currentBlock}`);
         } catch (error) {
             seedKeeperLogger.error(`QUERYING: error ${error as Error}`);
